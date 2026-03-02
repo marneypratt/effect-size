@@ -1,0 +1,197 @@
+---
+title: "Effect Size Tutorial"
+author: "Marney Pratt"
+date: "February 26, 2026"
+format: html
+engine: knitr
+filters:
+  - webr
+webr:
+  packages: ['ggplot2', 'dplyr', 'palmerpenguins', 'ggbeeswarm', 'ggpubr',  'rstatix', 'knitr']  
+---
+
+## Introduction
+
+If you have a measurement for two different groups, how do you know if that measurement is different between the two groups?
+
+We use inferential statistics to help us be able to make generalizations, test hypotheses, or make predictions about data sampled from populations by using probability theory.
+
+**INSERT MORE BACKGROUND INFO HERE** Null Hypothesis Significance Testing (t-test and similar) Effect size with confidence intervals
+
+## Palmer Penguins Dataset
+
+For this tutorial, we will be using the [palmerpenguins dataset](https://allisonhorst.github.io/palmerpenguins/index.html) which contains various size measurements for three species of penguins from the Palmer Archipelago in Antarctica. These data were collected by Dr. Kristen Gorman in 2007-2009. The `palmerpenguins` R data package was developed by Allison Horst, Alison Hill, and Kristen Gorman.
+
+![Meet the Palmer penguins (artwork by \@allison_horst). These penguins are all in the genus *Pygoscelis* - chinstrap: *P. antarctica*, gentoo: *P. papua*, Adélie: *P. adeliae*.](images/lter_penguins.png)
+
+We can look at the various measurements for the three species (bill length, bill depth, flipper length, or body mass) and split the measurement by species, sex, island, or year. 
+
+Let's start by looking at the body size of all three species of penguin split by species and sex (@fig-penguinsize).
+
+```{r}
+#| warning: false
+#| message: false
+#| code-fold: true
+#| label: fig-penguinsize
+#| fig-cap: "Size of Palmer penguins (Adélie: *Pygoscelis adeliae*, chinstrap: *P. antarctica*, gentoo: *P. papua*) split by sex and species. Each point represents the body mass in grams for an individual penguin. The shape of the distribution is indicated by the violin (shading) and jittering of points. The boxplots show the median (thicker horizontal bar), middle 50% of the data (box), and whiskers (thin vertical lines). In most cases the whiskers here reach to the minimum or maximum, but there are a few cases where they reach 1.5 times the interquartile range from the edge of the box and points beyond are considered outliers."
+#| fig-alt: "Body size (in grams) from just under 3000 up to a little over 6000 on the y-axis. The x-axis is split into 3 facets representing 3 penguin species (Adelie, Chinstrap, and Gentoo), which are each split by sex into female and male. In all cases, the typical males are larger than the females. Most of the distributions are fairly unimodal but not perfectly symmetrical."
+
+library(palmerpenguins)
+library(dplyr)
+library(ggplot2)
+library(ggbeeswarm)
+
+bodysize <- penguins |> 
+  filter(!is.na(sex)) |> 
+  ggplot(aes(x = sex,
+             y = body_mass_g,
+             color = species, fill = species)) +
+  geom_violin(width=1, alpha=0.1) +
+  geom_quasirandom(                              
+    shape=21, size=0.5, alpha = 0.5, width=0.4) + 
+  geom_boxplot(width=0.15, alpha=0.5, outlier.shape= NA) +
+  scale_color_manual(values = c("darkorange","purple","cyan4")) +
+  scale_fill_manual(values = c("darkorange","purple","cyan4")) +
+  labs(x = "Penguin Sex",
+       y = "Body mass (g)")+
+  theme_classic(base_size=18) +
+  theme(legend.position="none") +
+  facet_wrap(vars(species))
+
+bodysize
+
+
+```
+
+Note how the typical males are larger than the females for all three species. How do we know if these differences are meaningful? In this tutorial, we will use an effect size test to see how big the difference is (what is the effect size) and whether that difference is significant.
+
+
+To simplify, pick ONE species to focus on first. Use the interactive code chunk below to filter for one of the three species (you get to pick!)
+
+
+```{webr-r}
+#| warning: false
+#| message: false
+#| label: one-penguin-graph
+
+library(palmerpenguins)
+library(dplyr)
+library(ggplot2)
+library(ggbeeswarm)
+
+# create plot object called onespecies from the penguins dataset
+onesp <- penguins |> 
+  
+  # replace the blank below with Adelie, Chinstrap, or Gentoo
+  # this will filter for just the one species you choose
+  dplyr::filter(species == "____") |> 
+  
+  #filter out the data where sex is unknown for the penguins
+  dplyr::filter(!is.na(sex))  
+  
+ 
+#create a plot of the body mass on one penguin species separated by sex
+oneplot <- ggplot(data = onesp,
+         aes(x = sex,
+             y = body_mass_g,
+             color = sex, fill = sex)) +
+  geom_violin(width=1, alpha=0.1) +
+  geom_quasirandom(                              
+    shape=21, size=0.5, alpha = 0.5, width=0.4) + 
+  geom_boxplot(width=0.15, alpha=0.5, outlier.shape= NA) +
+  labs(x = "Penguin Sex",
+       y = "Body mass (g)") +
+  theme_classic(base_size=18) +
+  theme(legend.position="none") +
+  facet_wrap(vars(species))
+
+oneplot
+
+
+```
+
+
+
+
+
+
+```{webr-r}
+#| warning: true
+#| message: true
+
+library(palmerpenguins)
+library(dplyr)
+library(rstatix)
+library(knitr)
+
+# create plot object called onespecies from the penguins dataset
+onesp <- penguins |> 
+  
+  # replace the blank below with Adelie, Chinstrap, or Gentoo
+  # this will filter for just the one species you choose
+  dplyr::filter(species == "___") |> 
+  
+  #filter out the data where sex is unknown for the penguins
+  dplyr::filter(!is.na(sex))  
+
+
+# Descriptive statistics for non-normal data
+onesp  |> 
+  group_by(sex)  |> 
+  rstatix::get_summary_stats(body_mass_g, show = c(
+    "n", "min", "q1", "median", "q3", "max"))|> 
+  dplyr::select(-variable) |> 
+  knitr::kable(digits = -1, format = "simple")
+
+
+# Descriptive statistics for normal data
+onesp  |> 
+  group_by(sex)  |> 
+  rstatix::get_summary_stats(body_mass_g, show = c(
+    "n", "mean", "sd", "min", "max")) |> 
+  dplyr::select(-variable) |> 
+  knitr::kable(digits = -1, format = "simple") 
+
+
+```
+
+
+
+
+
+
+https://allisonhorst.github.io/palmerpenguins/reference/penguins.html
+
+species
+a factor denoting penguin species (Adélie, Chinstrap and Gentoo)
+
+island
+a factor denoting island in Palmer Archipelago, Antarctica (Biscoe, Dream or Torgersen)
+
+bill_length_mm
+a number denoting bill length (millimeters)
+
+bill_depth_mm
+a number denoting bill depth (millimeters)
+
+flipper_length_mm
+an integer denoting flipper length (millimeters)
+
+body_mass_g
+an integer denoting body mass (grams)
+
+sex
+a factor denoting penguin sex (female, male)
+
+year
+an integer denoting the study year (2007, 2008, or 2009)
+
+
+
+
+Some resources on effect sizes:
+https://bookdown.org/dorothy_bishop/Evaluating_What_Works/power.html#effect-size
+https://www.zoology.ubc.ca/~whitlock/Kingfisher/KFhomepage.htm
+https://statsthinking21.github.io/statsthinking21-core-site/ci-effect-size-power.html
+https://bookdown.org/ekothe/navarro26/ttest.html#cohensd
+
